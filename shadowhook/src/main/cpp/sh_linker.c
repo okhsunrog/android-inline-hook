@@ -678,19 +678,15 @@ end:
 }
 
 int sh_linker_init(void) {
-  // only init for >= Android 5.0
-#ifdef SH_CONFIG_COMPATIBLE_WITH_ARM_ANDROID_4_X
-  int api_level = sh_util_get_api_level();
-  if (__predict_false(api_level < __ANDROID_API_L__)) return 0;
-#endif
-
-  // get linker's soinfo::call_constructors(), soinfo::call_destructors() and g_dl_mutex
-  sh_addr_info_t call_ctors_addr_info, call_dtors_addr_info;
-  pthread_mutex_t *g_dl_mutex;
-  if (0 != sh_linker_get_symbol_info(&call_ctors_addr_info, &call_dtors_addr_info, &g_dl_mutex)) return -1;
-
-  // hook soinfo::call_constructors() and soinfo::call_destructors()
-  return sh_linker_hook_call_ctors_dtors(&call_ctors_addr_info, &call_dtors_addr_info, g_dl_mutex);
+  // vpnhide-zygisk patch: unconditionally skip installing shadowhook's
+  // linker-constructor hooks. They are only needed to apply deferred
+  // "pending" hooks to libraries dlopen()ed AFTER shadowhook_init(). Our
+  // target symbol (libc.so!ioctl) is always preloaded, so we hook it
+  // immediately and never create any pending hooks. On Android 16/API 36
+  // the linker-hook path returns SHADOWHOOK_ERRNO_INIT_LINKER (12) because
+  // sh_linker_hook_call_ctors_dtors() can't install its hooks on the
+  // newer linker layout, which was blocking our whole init.
+  return 0;
 }
 
 int sh_linker_register_dl_init_callback(shadowhook_dl_info_t pre, shadowhook_dl_info_t post, void *data) {
